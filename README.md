@@ -9,25 +9,35 @@ This repo contains small Python demos comparing LLM request strategies and using
 
 ### 1) Create and activate the Conda environment
 
-From the project root:
-
-```bash
-source ./makevenv.sh
-```
-
-**If your Conda installation is in a non-standard location**, specify the path:
+From the project root, you **must** provide the path to your Conda/Miniconda installation:
 
 ```bash
 source ./makevenv.sh /path/to/your/conda/or/miniconda
 ```
 
-What it does:
+**Examples:**
+```bash
+# If Miniconda is installed in your home directory
+# (The path should point to the directory containing bin/conda)
+source ./makevenv.sh $HOME/miniconda3
+
+# Or with an absolute path
+source ./makevenv.sh /opt/conda
+
+# Or if you have Anaconda
+source ./makevenv.sh $HOME/anaconda3
+
+# To find your Conda base path, run: conda info --base
+# Then use that path: source ./makevenv.sh $(conda info --base)
+```
+
+**What it does:**
 - Creates a Conda environment named `pydelhi-talk` if missing (with Python 3.13 or 3.12)
 - Activates the environment
 - Upgrades `pip`
 - Installs dependencies from `requirements.txt` if present
 
-**Note:** The script will automatically detect Conda if it's in your PATH. Otherwise, you can pass the Conda base directory as an argument.
+**Note:** The Conda base path is required. This is typically the directory where Conda/Miniconda is installed (the directory containing `bin/conda`).
 
 ### 2) Install dependencies
 
@@ -78,5 +88,5 @@ python ttft_prefix_caching_1.py
 
 - The file `large_shakespearean_text_dump` is loaded by the Anthropic demos; keep it in the project root.
 - To leave the Conda environment: `conda deactivate`.
-- If Conda is not in your PATH, pass the Conda base directory to `makevenv.sh` as an argument.
+- The Conda base path argument is required when running `makevenv.sh`.
 

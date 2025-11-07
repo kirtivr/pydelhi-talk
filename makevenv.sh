@@ -1,28 +1,24 @@
 #!/bin/sh
 
 # Use Conda for this project without exiting the parent shell when sourced.
-# Usage: source ./makevenv.sh [CONDA_BASE_PATH]
-#   CONDA_BASE_PATH: Optional path to Conda/Miniconda installation
-#                    Default: $HOME/Documents/git/Miniconda
+# Usage: source ./makevenv.sh CONDA_BASE_PATH
+#   CONDA_BASE_PATH: Required path to Conda/Miniconda installation base directory
+#                    Example: /home/user/miniconda3 or /opt/conda
 
 ENV_NAME="pydelhi-talk"
 
 # Exit the script early (without killing the caller) if a hard error occurs
 _stop_here_ok() { return 0 2>/dev/null || exit 0; }
 
-# Set Conda base location from command line argument or use default
-if [ -n "$1" ]; then
-    CONDA_BASE="$1"
-else
-    # Default fallback: try to detect from conda command, or use default path
-    if command -v conda >/dev/null 2>&1; then
-        CONDA_BASE="$(conda info --base 2>/dev/null || echo "")"
-    fi
-    # If still not set, use default
-    if [ -z "$CONDA_BASE" ]; then
-        CONDA_BASE="$HOME/Documents/git/Miniconda"
-    fi
+# Require Conda base location from command line argument
+if [ -z "$1" ]; then
+    echo "Error: Conda base path is required." >&2
+    echo "Usage: source ./makevenv.sh /path/to/conda/or/miniconda" >&2
+    echo "Example: source ./makevenv.sh \$HOME/miniconda3" >&2
+    _stop_here_ok
 fi
+
+CONDA_BASE="$1"
 
 # Initialize conda for the current shell if possible
 # Try bin/conda.sh first, then fall back to etc/profile.d/conda.sh
