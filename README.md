@@ -52,7 +52,8 @@ pip install -r requirements.txt
 Some scripts require API keys. Export what you need before running:
 
 ```bash
-# For context_management_with_mem0.py (uses an OpenAI-compatible client against DeepSeek)
+# For context_management_with_mem0.py (uses Mem0 for memory management and DeepSeek for LLM)
+export MEM0_API_KEY="your-mem0-api-key"  # Get your API key from https://app.mem0.ai/
 export DEEPSEEK_API_KEY="your-deepseek-key"
 # Optional overrides (defaults shown)
 export DEEPSEEK_API_BASE="https://api.deepseek.com"

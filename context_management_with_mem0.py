@@ -1,30 +1,7 @@
 import os
 import time
 from typing import List, Dict, Any, Tuple, cast
-try:
-    from mem0 import Memory  # type: ignore
-except Exception:
-    # Fallback lightweight in-memory stub to keep the demo runnable without mem0 installed
-    class Memory:  # type: ignore
-        def __init__(self) -> None:
-            self._store: Dict[str, List[Dict[str, str]]] = {}
-
-        def add(self, history: List[Dict[str, str]], user_id: str) -> None:
-            self._store[user_id] = list(history)
-
-        def search(self, query: str, filters: Dict[str, str]) -> List[Dict[str, str]]:
-            uid = filters.get("user_id", "")
-            blob = self._store.get(uid, [])
-            q = query.lower()
-            # naive relevance: contains any keyword tokens
-            keywords = [t for t in q.split() if len(t) > 3]
-            results: List[Dict[str, str]] = []
-            for m in blob:
-                text = m.get("content", "").lower()
-                if any(k in text for k in keywords):
-                    results.append(m)
-            # if nothing matched, return the first few preferences
-            return results[:10] if results else blob[:10]
+from mem0 import MemoryClient  # type: ignore
 from openai import OpenAI
 
 # Configuration
@@ -32,11 +9,17 @@ DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")
 DEEPSEEK_API_BASE = os.environ.get(
     "DEEPSEEK_API_BASE", "https://api.deepseek.com")
 MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+MEM0_API_KEY = os.environ.get("MEM0_API_KEY")
 USER_ID = "developer_alice"
 
 if not DEEPSEEK_API_KEY:
     raise ValueError(
         "DEEPSEEK_API_KEY not set. Export it: export DEEPSEEK_API_KEY='your-key'"
+    )
+
+if not MEM0_API_KEY:
+    raise ValueError(
+        "MEM0_API_KEY not set. Export it: export MEM0_API_KEY='your-key'"
     )
 
 # Client (DeepSeek uses OpenAI-compatible API)
@@ -202,12 +185,26 @@ def approach_1_full_context(history: List[Dict[str, str]], query: str) -> Dict[s
     return metrics
 
 
-def approach_2_with_mem0(memory: Memory, user_id: str, query: str) -> Dict[str, Any]:
+def approach_2_with_mem0(memory_client: MemoryClient, user_id: str, query: str) -> Dict[str, Any]:
     print("\n" + "="*70)
     print("APPROACH 2: With Mem0 - Retrieve Only Relevant Context")
     print("="*70)
-    relevant = memory.search(query, filters={"user_id": user_id})
-    relevant_text = "\n".join([str(x) for x in relevant]) if relevant else ""
+    # Search for relevant memories using Mem0
+    # Filters are required - user_id must be in filters dict
+    search_results = memory_client.search(query, filters={"user_id": user_id})
+    # Extract memory content from search results
+    if search_results and isinstance(search_results, dict) and "results" in search_results:
+        memories = search_results["results"]
+    elif isinstance(search_results, list):
+        memories = search_results
+    else:
+        memories = []
+
+    relevant_text = "\n".join([
+        str(m.get("data", {}).get("memory", m)
+            ) if isinstance(m, dict) else str(m)
+        for m in memories
+    ]) if memories else ""
 
     system_msg = {"role": "system", "content": "You are a helpful assistant."}
     user_msg = {"role": "user",
@@ -245,20 +242,7 @@ def approach_2_with_mem0(memory: Memory, user_id: str, query: str) -> Dict[str, 
 
 
 def print_comparison(metrics1: Dict[str, Any], metrics2: Dict[str, Any]):
-    # Display responses comparison first
-    print("\n" + "="*70)
-    print("RESPONSE COMPARISON")
-    print("="*70)
-    print("\nApproach 1 (Full Context) Response:")
-    print("-" * 70)
-    print(metrics1.get('response', 'N/A'))
-    print("-" * 70)
-    print("\nApproach 2 (Mem0) Response:")
-    print("-" * 70)
-    print(metrics2.get('response', 'N/A'))
-    print("-" * 70)
-
-    # Display metrics comparison at the end
+    # Display metrics comparison
     print("\n" + "="*70)
     print("METRICS COMPARISON")
     print("="*70)
@@ -299,11 +283,15 @@ def print_comparison(metrics1: Dict[str, Any], metrics2: Dict[str, Any]):
 if __name__ == "__main__":
     # Build and store conversation history
     conversation_history = generate_developer_conversation()
-    m = Memory()
-    m.add(conversation_history, user_id=USER_ID)
+
+    # Initialize Mem0 client (hosted API)
+    mem0_client = MemoryClient(api_key=MEM0_API_KEY)
+
+    # Add conversation history to Mem0
+    mem0_client.add(conversation_history, user_id=USER_ID, version="v2")
 
     query = "How should I structure a resilient async workflow with retries and idempotency?"
 
     metrics_full = approach_1_full_context(conversation_history, query)
-    metrics_mem0 = approach_2_with_mem0(m, USER_ID, query)
+    metrics_mem0 = approach_2_with_mem0(mem0_client, USER_ID, query)
     print_comparison(metrics_full, metrics_mem0)
