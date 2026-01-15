@@ -3,6 +3,9 @@ import time
 from typing import List, Dict, Any, Tuple, cast
 from mem0 import MemoryClient  # type: ignore
 from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY")

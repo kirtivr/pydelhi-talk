@@ -1,19 +1,23 @@
-import anthropic
+import openai
 import os
 import time
-from typing import Dict, List, Any
+from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dotenv import load_dotenv
 
 load_dotenv()
 
-api_key = os.environ.get("ANTHROPIC_API_KEY")
+api_key = os.environ.get("OPENROUTER_API_KEY")
 if not api_key:
     raise ValueError(
-        "ANTHROPIC_API_KEY environment variable not set. "
-        "Please export it: export ANTHROPIC_API_KEY='your-key-here'"
+        "OPENROUTER_API_KEY environment variable not set. "
+        "Please export it: export OPENROUTER_API_KEY='your-key-here'"
     )
-client = anthropic.Anthropic(api_key=api_key)
+
+client = openai.OpenAI(
+    api_key=api_key,
+    base_url="https://openrouter.ai/api/v1"
+)
 
 with open("large_shakespearean_text_dump", "r", encoding="utf-8") as f:
     large_context = f.read()
@@ -77,22 +81,27 @@ def approach_1_parallel() -> Dict[str, Any]:
     start_time = time.perf_counter()
 
     def send_request(prompt: str, index: int) -> Dict[str, Any]:
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        response = client.chat.completions.create(
+            model="anthropic/claude-sonnet-4",
             max_tokens=1024,
-            system=system_message,
             messages=[
+                {
+                    "role": "system",
+                    "content": system_message
+                },
                 {
                     "role": "user",
                     "content": prompt
                 }
             ]
         )
+        input_tokens = response.usage.prompt_tokens if response.usage else 0
+        output_tokens = response.usage.completion_tokens if response.usage else 0
         return {
             "index": index,
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-            "total_tokens": response.usage.input_tokens + response.usage.output_tokens
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": input_tokens + output_tokens
         }
 
     with ThreadPoolExecutor(max_workers=10) as executor:
@@ -140,11 +149,14 @@ def approach_2_sequential() -> Dict[str, Any]:
         print(f"\nSending request {i+1}/10...")
         request_start = time.perf_counter()
 
-        response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+        response = client.chat.completions.create(
+            model="anthropic/claude-sonnet-4",
             max_tokens=1024,
-            system=system_message,
             messages=[
+                {
+                    "role": "system",
+                    "content": system_message
+                },
                 {
                     "role": "user",
                     "content": prompt
@@ -155,8 +167,8 @@ def approach_2_sequential() -> Dict[str, Any]:
         request_end = time.perf_counter()
         request_time = request_end - request_start
 
-        input_tokens = response.usage.input_tokens
-        output_tokens = response.usage.output_tokens
+        input_tokens = response.usage.prompt_tokens if response.usage else 0
+        output_tokens = response.usage.completion_tokens if response.usage else 0
         metrics["total_tokens_processed"] += input_tokens + output_tokens
 
         print(f"  Completed in {request_time:.2f}s: "
@@ -219,7 +231,7 @@ def print_comparison(metrics1: Dict[str, Any], metrics2: Dict[str, Any]):
 
 
 if __name__ == "__main__":
-    print("Parallel vs Sequential Requests Comparison")
+    print("Parallel vs Sequential Requests Comparison (OpenRouter)")
     print("="*70)
     print("Finding needles in a haystack: 10 prompts, each ~5000 characters")
     print("Each prompt asks to find a specific quote in the Shakespearean text")
